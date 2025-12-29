@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 
+// ✅ BACKEND API (Render)
+const API_URL = "https://inventory-backend-by75.onrender.com/api/products";
+
 const AddProductForm = ({ onProductAdded, productToEdit, onProductUpdated }) => {
   const [formData, setFormData] = useState({
     name: "",
@@ -13,73 +16,80 @@ const AddProductForm = ({ onProductAdded, productToEdit, onProductUpdated }) => 
 
   const [loading, setLoading] = useState(false);
 
+  // ✅ Prefill form when editing
   useEffect(() => {
     if (productToEdit) {
       setFormData({
-        name: productToEdit.name,
-        description: productToEdit.description,
-        price: productToEdit.price,
-        quantity: productToEdit.quantity,
-        category: productToEdit.category
+        name: productToEdit.name || "",
+        description: productToEdit.description || "",
+        price: productToEdit.price || "",
+        quantity: productToEdit.quantity || "",
+        category: productToEdit.category || ""
       });
     } else {
-      setFormData({
-        name: "",
-        description: "",
-        price: "",
-        quantity: "",
-        category: ""
-      });
+      resetForm();
     }
   }, [productToEdit]);
 
-  const handleChange = (e) => {
+  const resetForm = () => {
     setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
+      name: "",
+      description: "",
+      price: "",
+      quantity: "",
+      category: ""
     });
+  };
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // ✅ Basic validation
+    if (
+      !formData.name ||
+      !formData.category ||
+      formData.price <= 0 ||
+      formData.quantity < 0
+    ) {
+      toast.error("Please fill all fields correctly");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      let res;
+      const payload = {
+        ...formData,
+        price: Number(formData.price),
+        quantity: Number(formData.quantity)
+      };
+
       if (productToEdit) {
-        // Edit product
-        res = await axios.put(
-          `http://localhost:5000/api/products/${productToEdit._id}`,
-          {
-            ...formData,
-            price: Number(formData.price),
-            quantity: Number(formData.quantity)
-          }
+        // ✅ UPDATE PRODUCT
+        const res = await axios.put(
+          `${API_URL}/${productToEdit._id}`,
+          payload
         );
         onProductUpdated(res.data);
         toast.success("Product updated successfully!");
       } else {
-        // Add product
-        res = await axios.post("http://localhost:5000/api/products", {
-          ...formData,
-          price: Number(formData.price),
-          quantity: Number(formData.quantity)
-        });
+        // ✅ ADD PRODUCT
+        const res = await axios.post(API_URL, payload);
         onProductAdded(res.data);
         toast.success("Product added successfully!");
       }
 
-      // Reset form
-      setFormData({
-        name: "",
-        description: "",
-        price: "",
-        quantity: "",
-        category: ""
-      });
-    } catch (err) {
-      console.error("Failed to save product:", err);
-      toast.error("Error saving product");
+      resetForm();
+    } catch (error) {
+      console.error("Save failed:", error);
+      toast.error("Failed to save product");
     } finally {
       setLoading(false);
     }
@@ -91,8 +101,10 @@ const AddProductForm = ({ onProductAdded, productToEdit, onProductUpdated }) => 
         {productToEdit ? "Edit Product" : "Add New Product"}
       </h2>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
         <input
           type="text"
           name="name"
@@ -117,6 +129,8 @@ const AddProductForm = ({ onProductAdded, productToEdit, onProductUpdated }) => 
           type="number"
           name="price"
           placeholder="Price"
+          min="0"
+          step="0.01"
           value={formData.price}
           onChange={handleChange}
           required
@@ -127,6 +141,7 @@ const AddProductForm = ({ onProductAdded, productToEdit, onProductUpdated }) => 
           type="number"
           name="quantity"
           placeholder="Quantity"
+          min="0"
           value={formData.quantity}
           onChange={handleChange}
           required
@@ -146,7 +161,11 @@ const AddProductForm = ({ onProductAdded, productToEdit, onProductUpdated }) => 
           disabled={loading}
           className="md:col-span-2 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
         >
-          {loading ? "Saving..." : productToEdit ? "Update Product" : "Add Product"}
+          {loading
+            ? "Saving..."
+            : productToEdit
+            ? "Update Product"
+            : "Add Product"}
         </button>
       </form>
     </div>
